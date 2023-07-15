@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import PropTypes from 'prop-types';
 
 export function Modal({ src, handleModalClose }) {
+  
   const handleClickOnOverlay = event => {
     if (event.target === event.currentTarget) {
       handleModalClose();
