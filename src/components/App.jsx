@@ -1,5 +1,4 @@
-import React from 'react';
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { Searchbar } from './Searchbar/Searchbar';
 import { fechImg } from 'services/api';
 import { ImageGallery } from './ImageGallery/ImageGallery';
@@ -8,107 +7,93 @@ import { Loader } from './Loader/Loader';
 import Notiflix from 'notiflix';
 import { Modal } from './Modal/Modal';
 
-export class App extends Component {
-  state = {
-    toSearch: '',
-    images: [],
-    isLoading: false,
-    error: null,
-    page: null,
-    totalHits: 0,
-    selectedImgId: null,
-    selectedImg: null,
+export function App() {
+  const [toSearch, setToSearch] = useState('');
+  const [images, setImages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(null);
+  const [totalHits, setTotalHits] = useState(0);
+  const [selectedImgId, setSelectedImgId] = useState(null);
+  const [selectedImg, setSelectedImg] = useState(null);
+
+  const handleSubmit = whatToSearch => {
+    setToSearch(whatToSearch);
+    setPage(1);
+    setTotalHits(0);
+    setError(null);
+    setImages([]);
   };
 
-  handleSubmit = toSearch => {
-    this.setState({ toSearch, page: 1, totalHits: 0, error: null, images: [] });
+  const handleLoadMoreBtn = () => {
+    setPage(page + 1);
   };
 
-  handleLoadMoreBtn = () => {
-    this.setState(prevState => {
-      return { page: prevState.page + 1 };
-    });
-  };
-
-  handleFech = async () => {
+  const handleFech = async () => {
     try {
-      this.setState({ isLoading: true });
-      const response = await fechImg(this.state.toSearch, this.state.page);
-       this.setState(prevState => {
-        return {
-          images: [...prevState.images, ...response.data.hits],
-          totalHits: response.data.totalHits,
-        };
-       });
-       if (response.data.totalHits === 0) {
-         Notiflix.Notify.warning('Nothing found, please try something else!');
-         return
-       };
+      setIsLoading(true);
+      const response = await fechImg(toSearch, page);
+
+      setImages([...images, ...response.data.hits]);
+      setTotalHits(response.data.totalHits);
+
+      if (response.data.totalHits === 0) {
+        Notiflix.Notify.warning('Nothing found, please try something else!');
+        return;
+      }
       if (response.data.hits.length < 12) {
         Notiflix.Notify.info('Thats all we have');
-      };
+      }
     } catch (error) {
-      this.setState({ error: error.message });
+      setError(error.message);
     } finally {
-      this.setState({ isLoading: false });
+      setIsLoading(false);
     }
-    
   };
 
-  onSelectImg = selectedImgId => {
-    const selectedImg = this.state.images.find(img => img.id === selectedImgId);
-    this.setState({ selectedImgId, selectedImg });
+  const onSelectImg = selectedImgId => {
+    const selectedImg = images.find(img => img.id === selectedImgId);
+    setSelectedImgId(selectedImgId);
+    setSelectedImg(selectedImg);
   };
 
-  handleModalClose = () => {
-    this.setState({
-      selectedImgId: null,
-      selectedImg: null,
-    });
+  const handleModalClose = () => {
+    setSelectedImgId(null);
+    setSelectedImg(null);
   };
 
-  async componentDidUpdate(_, prevState) {
-    if (this.state.toSearch !== prevState.toSearch || 
-      this.state.page !== prevState.page) {
-      this.handleFech();
+  useEffect(() => {
+    if (toSearch === '') {
+      return;
     }
+    handleFech();
+  }, [toSearch, page]);
 
-  }
+  return (
+    <div className="App">
+      {/* Searchbar */}
+      <Searchbar onSubmit={handleSubmit} />
 
-  render() {
-    return (
-      <div className="App">
-        {/* Searchbar */}
-        <Searchbar onSubmit={this.handleSubmit} />
+      {/* Error */}
+      {error !== null && <p>{error}</p>}
 
-        {/* Error */}
-        {this.state.error !== null && <p>{this.state.error}</p>}
+      {/* Gallery */}
+      {images.length > 0 ? (
+        <ImageGallery imgData={images} selectImg={onSelectImg} />
+      ) : null}
 
-        {/* Gallery */}
-        {this.state.images.length > 0 ? (
-          <ImageGallery
-            imgData={this.state.images}
-            selectImg={this.onSelectImg}
-          />
-        ) : null}
+      {/* Loader */}
+      {isLoading && <Loader />}
 
-        {/* Loader */}
-        {this.state.isLoading && <Loader />}
+      {/* Button */}
+      {images.length > 0 && totalHits / 12 > page ? (
+        <LoadMoreButton loadMore={handleLoadMoreBtn} />
+      ) : null}
 
-        {/* Button */}
-        {this.state.images.length > 0 &&
-        this.state.totalHits / 12 > this.state.page ? (
-          <LoadMoreButton loadMore={this.handleLoadMoreBtn} />
-        ) : null}
-
-        {/* Modal */}
-        {this.state.selectedImgId && (
-          <Modal
-            src={this.state.selectedImg}
-            handleModalClose={this.handleModalClose}
-          />
-        )}
-      </div>
-    );
-  }
+      {/* Modal */}
+      {selectedImgId && (
+        <Modal src={selectedImg} handleModalClose={handleModalClose} />
+      )}
+    </div>
+  );
 }
